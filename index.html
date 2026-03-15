@@ -21,6 +21,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
         }
         .screen {
             display: none;
@@ -43,6 +44,7 @@
             border: none;
             margin-bottom: 10px;
             font-size: 16px;
+            box-sizing: border-box;
         }
         button {
             background-color: var(--primary);
@@ -54,17 +56,24 @@
             cursor: pointer;
             margin: 5px;
             font-weight: bold;
+            width: 80%;
+            max-width: 300px;
         }
         button:active { background-color: #ff6b81; }
         #player-list { list-style: none; padding: 0; margin-bottom: 20px;}
         #player-list li { background: #747d8c; margin: 5px; padding: 10px; border-radius: 6px; }
         
         canvas {
+            width: 100%; 
+            height: 50vh; 
+            max-height: 400px; 
             background: white;
             border-radius: 8px;
-            touch-action: none; /* Prevents scrolling while drawing on mobile */
+            touch-action: none; 
             cursor: crosshair;
             margin-bottom: 10px;
+            border: 2px solid #ced6e0;
+            box-sizing: border-box;
         }
         
         #gallery {
@@ -83,6 +92,27 @@
             font-weight: bold;
             color: #ffa502;
             margin: 20px 0;
+            padding: 15px;
+            background: #2f3542;
+            border-radius: 8px;
+        }
+
+        /* Styles for the final truth reveal */
+        .truth-box {
+            display: none;
+            background: #2f3542;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 2px solid #ffa502;
+        }
+        .truth-box p {
+            margin: 5px 0;
+            font-size: 20px;
+        }
+        .highlight {
+            color: #ffa502;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -92,6 +122,7 @@
         <h1>Sketchy Suspect</h1>
         <p>Enter at least 3 players to start!</p>
         <input type="text" id="player-name" placeholder="Enter player name">
+        <br>
         <button onclick="addPlayer()">Add Player</button>
         <ul id="player-list"></ul>
         <button onclick="startGame()" style="background-color: #2ed573;">Start Game</button>
@@ -112,26 +143,41 @@
     </div>
 
     <div id="draw-screen" class="screen">
-        <h2 id="draw-player-name">Name, it's your turn to draw!</h2>
-        <canvas id="drawing-board" width="300" height="300"></canvas>
+        <h2 id="draw-player-name">Name, draw!</h2>
+        <canvas id="drawing-board"></canvas>
         <br>
-        <button onclick="clearCanvas()" style="background-color: #a4b0be;">Clear</button>
-        <button onclick="submitDrawing()">Submit Drawing</button>
+        <button onclick="clearCanvas()" style="background-color: #a4b0be; width: 40%;">Clear</button>
+        <button onclick="submitDrawing()" style="width: 40%;">Done</button>
     </div>
 
     <div id="reveal-screen" class="screen">
         <h1>Time to Vote!</h1>
-        <p>Who is the imposter?</p>
+        <p>Discuss and decide who the imposter is based on the drawings below!</p>
         <div id="gallery"></div>
-        <button onclick="location.reload()">Play Again</button>
+        
+        <hr style="margin: 30px 0; border-color: #747d8c;">
+        
+        <button id="reveal-btn" onclick="revealTruth()" style="background-color: #ffa502; color: #2f3542;">Reveal the Truth</button>
+        <div id="truth-display" class="truth-box">
+            <p>The story was: <br><span id="truth-story" class="highlight"></span></p>
+            <hr style="border-color: #57606F; margin: 10px 0;">
+            <p>The imposter was: <br><span id="truth-imposter" class="highlight" style="color: #FF4757;"></span></p>
+        </div>
+
+        <br>
+        <button onclick="location.reload()" style="margin-top: 20px;">Play Again</button>
     </div>
 
     <script>
         // --- GAME STATE ---
         const stories = ["A dog flying a spaceship", "A dinosaur eating a pizza", "A ninja playing tennis", "A snowman on fire"];
         let players = [];
-        let currentPhase = "roles"; // 'roles' or 'drawing'
+        let currentPhase = "roles"; 
         let currentPlayerIndex = 0;
+        
+        // Variables to remember the truth for the end of the game
+        let activeStory = "";
+        let activeImposterName = "";
 
         // --- DOM ELEMENTS ---
         const screens = {
@@ -161,15 +207,16 @@
                 return;
             }
             
-            // Assign roles
-            const randomStory = stories[Math.floor(Math.random() * stories.length)];
+            // Set the global variables so we can reveal them later
+            activeStory = stories[Math.floor(Math.random() * stories.length)];
             const imposterIndex = Math.floor(Math.random() * players.length);
+            activeImposterName = players[imposterIndex].name;
             
             players.forEach((player, index) => {
                 if (index === imposterIndex) {
                     player.role = "YOU ARE THE IMPOSTER! Fake it!";
                 } else {
-                    player.role = `Story: ${randomStory}`;
+                    player.role = `Story: ${activeStory}`;
                 }
             });
 
@@ -196,15 +243,14 @@
                 showScreen('role');
             } else if (currentPhase === "drawing") {
                 document.getElementById('draw-player-name').innerText = players[currentPlayerIndex].name;
-                clearCanvas();
                 showScreen('draw');
+                resizeCanvas();
             }
         }
 
         function hideAndNext() {
             currentPlayerIndex++;
             if (currentPlayerIndex >= players.length) {
-                // Done with roles, move to drawing
                 currentPlayerIndex = 0;
                 currentPhase = "drawing";
             }
@@ -217,11 +263,20 @@
         const ctx = canvas.getContext('2d');
         let isDrawing = false;
 
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            clearCanvas(); 
+        }
+
         function getCoords(e) {
             const rect = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top };
+            return { 
+                x: clientX - rect.left, 
+                y: clientY - rect.top 
+            };
         }
 
         function startPosition(e) {
@@ -236,12 +291,12 @@
 
         function draw(e) {
             if (!isDrawing) return;
-            e.preventDefault(); // Prevents screen scrolling on touch
+            e.preventDefault(); 
             const coords = getCoords(e);
             
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
             ctx.lineCap = 'round';
-            ctx.strokeStyle = '#000';
+            ctx.strokeStyle = '#2f3542'; 
 
             ctx.lineTo(coords.x, coords.y);
             ctx.stroke();
@@ -249,11 +304,9 @@
             ctx.moveTo(coords.x, coords.y);
         }
 
-        // Mouse Events
         canvas.addEventListener('mousedown', startPosition);
         canvas.addEventListener('mouseup', endPosition);
         canvas.addEventListener('mousemove', draw);
-        // Touch Events for Mobile
         canvas.addEventListener('touchstart', startPosition, {passive: false});
         canvas.addEventListener('touchend', endPosition);
         canvas.addEventListener('touchmove', draw, {passive: false});
@@ -265,12 +318,10 @@
         }
 
         function submitDrawing() {
-            // Save the image data
             players[currentPlayerIndex].drawing = canvas.toDataURL();
             
             currentPlayerIndex++;
             if (currentPlayerIndex >= players.length) {
-                // Everyone has drawn!
                 showFinalReveal();
             } else {
                 showScreen('pass');
@@ -282,9 +333,8 @@
         function showFinalReveal() {
             showScreen('reveal');
             const gallery = document.getElementById('gallery');
-            gallery.innerHTML = ''; // Clear previous
+            gallery.innerHTML = ''; 
 
-            // Shuffle the players array so the order is random (harder to guess!)
             const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
 
             shuffledPlayers.forEach(player => {
@@ -297,6 +347,22 @@
                 gallery.appendChild(div);
             });
         }
+        
+        // NEW FUNCTION: Reveals the truth at the end!
+        function revealTruth() {
+            document.getElementById('truth-story').innerText = activeStory;
+            document.getElementById('truth-imposter').innerText = activeImposterName;
+            
+            // Hide the button and show the truth box
+            document.getElementById('reveal-btn').style.display = 'none';
+            document.getElementById('truth-display').style.display = 'block';
+        }
+
+        window.addEventListener('resize', () => {
+            if (currentPhase === 'drawing' && document.getElementById('draw-screen').classList.contains('active')) {
+                resizeCanvas(); 
+            }
+        });
     </script>
 </body>
 </html>
