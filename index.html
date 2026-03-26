@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jungle Rescue - Level 1</title>
+    <title>Jungle Rescue Arcade</title>
     <style>
-        body { margin: 0; background: #0a1a0a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        canvas { background: #152b15; border: 5px solid #2d5a27; border-radius: 8px; }
+        body { margin: 0; background: #050a05; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: #1a2e1a; image-rendering: pixelated; border: 4px solid #3e5a3e; }
     </style>
 </head>
 <body>
@@ -21,7 +21,45 @@ const TILE_SIZE = 40;
 const GRID_W = 16;
 const GRID_H = 9;
 
-// 0: Path, 1: Tree, 2: Foliage, 3: Stone, 4: Exit
+// --- Assets Logic ---
+const sprites = {};
+function createSprites() {
+    const sCanvas = document.createElement('canvas');
+    const sCtx = sCanvas.getContext('2d');
+    sCanvas.width = 40; sCanvas.height = 40;
+
+    // 1. Tree (Wall)
+    sCtx.fillStyle = '#1b4d1b'; sCtx.fillRect(0,0,40,40);
+    sCtx.fillStyle = '#0a2e0a'; sCtx.fillRect(5,5,30,30);
+    sprites.tree = sCanvas.toDataURL();
+
+    // 2. Foliage (Dirt/Grass)
+    sCtx.fillStyle = '#4a7c44'; sCtx.fillRect(0,0,40,40);
+    sCtx.strokeStyle = '#2d5a27'; sCtx.strokeRect(5,5,30,30);
+    sprites.foliage = sCanvas.toDataURL();
+
+    // 3. Stone (Boulder)
+    sCtx.clearRect(0,0,40,40);
+    sCtx.fillStyle = '#777'; sCtx.beginPath(); sCtx.arc(20,20,18,0,Math.PI*2); sCtx.fill();
+    sCtx.fillStyle = '#999'; sCtx.beginPath(); sCtx.arc(15,15,5,0,Math.PI*2); sCtx.fill();
+    sprites.stone = sCanvas.toDataURL();
+
+    // 4. Hero (Arcade Character)
+    sCtx.clearRect(0,0,40,40);
+    sCtx.fillStyle = '#f39c12'; sCtx.fillRect(10,10,20,25); // Body
+    sCtx.fillStyle = '#34495e'; sCtx.fillRect(10,30,8,10); sCtx.fillRect(22,30,8,10); // Legs
+    sCtx.fillStyle = '#fad7a0'; sCtx.fillRect(12,5,16,12); // Head
+    sCtx.fillStyle = '#6e2c00'; sCtx.fillRect(8,5,24,4); // Hat Brim
+    sprites.hero = sCanvas.toDataURL();
+}
+createSprites();
+
+const imgTree = new Image(); imgTree.src = sprites.tree;
+const imgFoliage = new Image(); imgFoliage.src = sprites.foliage;
+const imgStone = new Image(); imgStone.src = sprites.stone;
+const imgHero = new Image(); imgHero.src = sprites.hero;
+
+// --- Game Logic ---
 let level = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,2,2,3,2,2,1,1,2,2,2,2,2,2,1],
@@ -41,21 +79,21 @@ function movePlayer(dx, dy) {
     let ny = player.y + dy;
     let target = level[ny][nx];
 
-    if (target === 1) return; // Tree wall
+    if (target === 1) return; 
 
-    if (target === 3 && dy === 0) { // Push Stone
+    if (target === 3 && dy === 0) { 
         if (level[ny][nx + dx] === 0) {
             level[ny][nx + dx] = 3;
             level[ny][nx] = 0;
-        } else { return; }
-    } else if (target === 3 && dy !== 0) { return; }
+        } else return;
+    } else if (target === 3 && dy !== 0) return;
 
     if (target === 4) {
-        alert("Level 1 Clear! Onto the deeper jungle...");
+        alert("Level 1 Complete!");
         location.reload();
     }
 
-    level[ny][nx] = 0; // Clear foliage
+    level[ny][nx] = 0;
     player.x = nx;
     player.y = ny;
 }
@@ -64,8 +102,8 @@ function updatePhysics() {
     for (let y = GRID_H - 2; y >= 0; y--) {
         for (let x = 0; x < GRID_W; x++) {
             if (level[y][x] === 3 && level[y+1][x] === 0) {
-                if (player.x === x && player.y === y + 1) {
-                    alert("CRUSHED BY A BOULDER!");
+                if (player.x === x && player.y === y+1) {
+                    alert("GAME OVER - CRUSHED");
                     player = {x: 1, y: 1};
                 }
                 level[y][x] = 0;
@@ -77,24 +115,24 @@ function updatePhysics() {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = "30px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
 
     for (let y = 0; y < GRID_H; y++) {
         for (let x = 0; x < GRID_W; x++) {
             let t = level[y][x];
-            let px = x * TILE_SIZE + TILE_SIZE/2;
-            let py = y * TILE_SIZE + TILE_SIZE/2;
+            let px = x * TILE_SIZE;
+            let py = y * TILE_SIZE;
 
-            if (t === 1) ctx.fillText("🌳", px, py);
-            if (t === 2) ctx.fillText("🌿", px, py);
-            if (t === 3) ctx.fillText("🪨", px, py);
-            if (t === 4) ctx.fillText("🚪", px, py);
+            if (t === 1) ctx.drawImage(imgTree, px, py);
+            if (t === 2) ctx.drawImage(imgFoliage, px, py);
+            if (t === 3) ctx.drawImage(imgStone, px, py);
+            if (t === 4) {
+                ctx.fillStyle = "#ffd700";
+                ctx.fillRect(px+5, py+5, 30, 30); // Golden Exit
+            }
         }
     }
-    // Draw Character
-    ctx.fillText("🤠", player.x * TILE_SIZE + TILE_SIZE/2, player.y * TILE_SIZE + TILE_SIZE/2);
+    // Draw Hero
+    ctx.drawImage(imgHero, player.x * TILE_SIZE, player.y * TILE_SIZE);
 }
 
 // Controls
@@ -105,7 +143,18 @@ window.addEventListener('keydown', e => {
     if(e.key === 'ArrowDown') movePlayer(0, 1);
 });
 
-// Canvas Scaling for Poki (16:9)
+// Touch Controls for Mobile
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = (e.clientX - rect.left) / rect.width;
+    const clickY = (e.clientY - rect.top) / rect.height;
+
+    if (clickY < 0.3) movePlayer(0, -1);
+    else if (clickY > 0.7) movePlayer(0, 1);
+    else if (clickX < 0.3) movePlayer(-1, 0);
+    else if (clickX > 0.7) movePlayer(1, 0);
+});
+
 function resize() {
     canvas.width = 640; canvas.height = 360;
     let scale = Math.min(window.innerWidth/640, window.innerHeight/360);
