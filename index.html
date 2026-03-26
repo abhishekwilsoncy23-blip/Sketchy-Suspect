@@ -3,194 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jungle Rescue Arcade</title>
+    <title>Jungle Rescue: Arcade</title>
     <style>
-        body { margin: 0; background: #050a05; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', Courier, monospace; }
-        canvas { background: #1a2e1a; image-rendering: pixelated; border: 4px solid #3e5a3e; cursor: pointer; }
+        body { margin: 0; background: #050a05; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', monospace; }
+        canvas { background: #1a2e1a; image-rendering: pixelated; border: 4px solid #3e5a3e; }
     </style>
 </head>
 <body>
-
 <canvas id="gameCanvas"></canvas>
 
 <script>
+// --- Configuration ---
+const TILE_SIZE = 40;
+const GRID_W = 20; // Larger Grid
+const GRID_H = 12;
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const TILE_SIZE = 40;
-const GRID_W = 16;
-const GRID_H = 9;
+let gameState = "PLAYING";
+let hasKey = false;
+let frameCount = 0;
 
-let gameState = "PLAYING"; // PLAYING, GAMEOVER, WIN
+// Tile ID Map: 0:Path, 1:Tree, 2:Foliage, 3:Stone, 4:Door, 5:Water, 6:Key
 const sprites = {};
-
-function createSprites() {
+function createArcadeSprites() {
     const sCanvas = document.createElement('canvas');
     const sCtx = sCanvas.getContext('2d');
     sCanvas.width = 40; sCanvas.height = 40;
 
-    // 1. Jungle Tree (Wall)
-    sCtx.fillStyle = '#0a2e0a'; sCtx.fillRect(0,0,40,40);
-    sCtx.fillStyle = '#1b4d1b'; 
-    sCtx.fillRect(5,0,30,40); sCtx.fillRect(0,10,40,20);
-    sCtx.fillStyle = '#2d5a27'; sCtx.fillRect(10,10,20,20);
-    sprites.tree = sCanvas.toDataURL();
+    const drawToSprite = (name, drawFn) => {
+        sCtx.clearRect(0,0,40,40);
+        drawFn(sCtx);
+        const img = new Image();
+        img.src = sCanvas.toDataURL();
+        sprites[name] = img;
+    };
 
-    // 2. Real Grass/Foliage (Breakable)
-    sCtx.clearRect(0,0,40,40);
-    sCtx.fillStyle = '#3d6e3d'; sCtx.fillRect(0,0,40,40);
-    sCtx.fillStyle = '#2d5a27';
-    for(let i=0; i<10; i++) sCtx.fillRect(Math.random()*30, Math.random()*30, 4, 8);
-    sprites.foliage = sCanvas.toDataURL();
-
-    // 3. Real Stone (Boulder)
-    sCtx.clearRect(0,0,40,40);
-    sCtx.fillStyle = '#555'; sCtx.beginPath(); sCtx.arc(20,22,18,0,Math.PI*2); sCtx.fill();
-    sCtx.fillStyle = '#888'; sCtx.beginPath(); sCtx.arc(16,16,10,0,Math.PI*2); sCtx.fill();
-    sCtx.fillStyle = '#bbb'; sCtx.fillRect(12,12,5,5); // Shine
-    sprites.stone = sCanvas.toDataURL();
-
-    // 4. Arcade Hero (Explorer)
-    sCtx.clearRect(0,0,40,40);
-    sCtx.fillStyle = '#83502e'; sCtx.fillRect(10,20,20,15); // Shirt
-    sCtx.fillStyle = '#333'; sCtx.fillRect(10,32,8,8); sCtx.fillRect(22,32,8,8); // Boots
-    sCtx.fillStyle = '#ffdbac'; sCtx.fillRect(12,8,16,14); // Face
-    sCtx.fillStyle = '#63391d'; sCtx.fillRect(5,8,30,5); // Hat Brim
-    sCtx.fillRect(10,2,20,8); // Hat Top
-    sprites.hero = sCanvas.toDataURL();
+    drawToSprite('tree', c => { c.fillStyle='#0a2e0a'; c.fillRect(0,0,40,40); c.fillStyle='#1b4d1b'; c.fillRect(5,5,30,30); });
+    drawToSprite('foliage', c => { c.fillStyle='#3d6e3d'; c.fillRect(0,0,40,40); c.fillStyle='#2d5a27'; for(let i=0;i<5;i++) c.fillRect(Math.random()*30,Math.random()*30,4,10); });
+    drawToSprite('stone', c => { c.fillStyle='#555'; c.beginPath(); c.arc(20,22,18,0,7); c.fill(); c.fillStyle='#888'; c.beginPath(); c.arc(16,16,8,0,7); c.fill(); });
+    drawToSprite('water', c => { c.fillStyle='#1e90ff'; c.fillRect(0,0,40,40); c.fillStyle='#afeeee'; c.fillRect(0,10,40,2); c.fillRect(0,25,40,2); });
+    drawToSprite('key', c => { c.fillStyle='#ffd700'; c.fillRect(15,10,10,20); c.fillRect(10,10,20,5); });
+    drawToSprite('hero', c => { c.fillStyle='#ffdbac'; c.fillRect(12,5,16,14); c.fillStyle='#83502e'; c.fillRect(10,20,20,15); c.fillStyle='#63391d'; c.fillRect(5,5,30,5); });
+    drawToSprite('snake', c => { c.fillStyle='#32cd32'; c.fillRect(5,25,30,10); c.fillStyle='#ff0000'; c.fillRect(32,27,5,2); });
 }
-createSprites();
+createArcadeSprites();
 
-const imgTree = new Image(); imgTree.src = sprites.tree;
-const imgFoliage = new Image(); imgFoliage.src = sprites.foliage;
-const imgStone = new Image(); imgStone.src = sprites.stone;
-const imgHero = new Image(); imgHero.src = sprites.hero;
-
-let level = [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,2,2,3,2,2,1,1,2,2,2,2,2,2,1],
-    [1,0,1,1,1,1,2,1,1,2,3,2,3,2,2,1],
-    [1,0,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-    [1,1,1,1,3,1,1,1,1,1,2,1,1,1,2,1],
-    [1,2,2,2,2,2,3,2,2,0,2,0,3,0,2,1],
-    [1,2,3,2,3,2,2,1,1,1,1,1,1,2,2,1],
-    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,4,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-];
-
-let player = { x: 1, y: 1 };
-
+// Physics & Logic
 function movePlayer(dx, dy) {
     if (gameState !== "PLAYING") return;
-
-    let nx = player.x + dx;
-    let ny = player.y + dy;
+    let nx = player.x + dx, ny = player.y + dy;
     let target = level[ny][nx];
 
-    if (target === 1) return; 
-
-    if (target === 3 && dy === 0) { 
-        if (level[ny][nx + dx] === 0) {
-            level[ny][nx + dx] = 3;
-            level[ny][nx] = 0;
-        } else return;
-    } else if (target === 3 && dy !== 0) return;
+    if (target === 1 || target === 5) return; // Wall or Water
+    if (target === 3 && dy === 0) { // Push stone
+        if (level[ny][nx+dx] === 0) { level[ny][nx+dx]=3; level[ny][nx]=0; } else return;
+    } else if (target === 3) return;
 
     if (target === 4) {
-        gameState = "WIN";
+        if(hasKey) gameState = "WIN";
+        else return;
     }
+    if (target === 6) { hasKey = true; level[ny][nx] = 0; }
 
-    level[ny][nx] = 0;
-    player.x = nx;
-    player.y = ny;
+    level[ny][nx] = 0; player.x = nx; player.y = ny;
 }
 
-function updatePhysics() {
+function update() {
     if (gameState !== "PLAYING") return;
+    frameCount++;
 
+    // Stone Physics
     for (let y = GRID_H - 2; y >= 0; y--) {
         for (let x = 0; x < GRID_W; x++) {
             if (level[y][x] === 3 && level[y+1][x] === 0) {
-                level[y][x] = 0;
-                level[y+1][x] = 3;
-                
-                // Check if hit player
-                if (player.x === x && player.y === y + 1) {
-                    gameState = "GAMEOVER";
-                }
+                level[y][x] = 0; level[y+1][x] = 3;
+                if (player.x === x && player.y === y + 1) gameState = "GAMEOVER";
             }
         }
+    }
+
+    // Snake AI
+    if (frameCount % 10 === 0) {
+        enemies.forEach(s => {
+            let nextX = s.x + s.dir;
+            if (level[s.y][nextX] === 0) s.x = nextX;
+            else s.dir *= -1;
+            if (s.x === player.x && s.y === player.y) gameState = "GAMEOVER";
+        });
     }
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     for (let y = 0; y < GRID_H; y++) {
         for (let x = 0; x < GRID_W; x++) {
             let t = level[y][x];
-            let px = x * TILE_SIZE;
-            let py = y * TILE_SIZE;
-
-            if (t === 1) ctx.drawImage(imgTree, px, py);
-            if (t === 2) ctx.drawImage(imgFoliage, px, py);
-            if (t === 3) ctx.drawImage(imgStone, px, py);
-            if (t === 4) {
-                ctx.fillStyle = "#ffd700";
-                ctx.fillRect(px+10, py+10, 20, 20); // Exit
-            }
+            let px = x * TILE_SIZE, py = y * TILE_SIZE;
+            if (t === 1) ctx.drawImage(sprites.tree, px, py);
+            if (t === 2) ctx.drawImage(sprites.foliage, px, py);
+            if (t === 3) ctx.drawImage(sprites.stone, px, py);
+            if (t === 5) ctx.drawImage(sprites.water, px, py);
+            if (t === 6) ctx.drawImage(sprites.key, px, py);
+            if (t === 4) { ctx.fillStyle = hasKey ? "#00ff00" : "#ff0000"; ctx.fillRect(px+5, py+5, 30, 30); }
         }
     }
-
-    ctx.drawImage(imgHero, player.x * TILE_SIZE, player.y * TILE_SIZE);
+    enemies.forEach(s => ctx.drawImage(sprites.snake, s.x * TILE_SIZE, s.y * TILE_SIZE));
+    ctx.drawImage(sprites.hero, player.x * TILE_SIZE, player.y * TILE_SIZE);
 
     if (gameState === "GAMEOVER") {
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(0,0,canvas.width, canvas.height);
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
-        ctx.font = "30px Courier New";
-        ctx.fillText("CRUSHED! GAME OVER", canvas.width/2, canvas.height/2);
-        ctx.font = "15px Courier New";
-        ctx.fillText("TAP TO RESTART", canvas.width/2, canvas.height/2 + 40);
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "white"; ctx.textAlign="center"; ctx.fillText("CRUSHED! CLICK TO RESTART", canvas.width/2, canvas.height/2);
     }
-
     if (gameState === "WIN") {
-        ctx.fillStyle = "rgba(0,100,0,0.8)";
-        ctx.fillRect(0,0,canvas.width, canvas.height);
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
-        ctx.font = "30px Courier New";
-        ctx.fillText("LEVEL 1 CLEAR!", canvas.width/2, canvas.height/2);
+        ctx.fillStyle = "rgba(0,50,0,0.9)"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "white"; ctx.textAlign="center"; ctx.fillText("HOSTAGE SAVED! (Next Level Coming Soon)", canvas.width/2, canvas.height/2);
     }
 }
 
-// Input Handling
+// Input
 window.addEventListener('keydown', e => {
-    movePlayer(e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0,
-               e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0);
+    if(e.key.includes('Arrow')) movePlayer(e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0, e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:0);
 });
-
-canvas.addEventListener('click', () => {
-    if (gameState !== "PLAYING") location.reload();
-    // Mobile Tap Logic
-    const rect = canvas.getBoundingClientRect();
-    // (Simplified Tap to move logic omitted for brevity, but same as previous)
-});
+canvas.addEventListener('mousedown', () => { if(gameState!=="PLAYING") location.reload(); });
 
 function resize() {
-    canvas.width = 640; canvas.height = 360;
-    let scale = Math.min(window.innerWidth/640, window.innerHeight/360);
-    canvas.style.width = (640 * scale) + "px";
-    canvas.style.height = (360 * scale) + "px";
+    canvas.width = 800; canvas.height = 480;
+    let scale = Math.min(window.innerWidth/800, window.innerHeight/480);
+    canvas.style.width = (800 * scale) + "px"; canvas.style.height = (480 * scale) + "px";
 }
-window.onresize = resize;
-resize();
-
-setInterval(() => {
-    updatePhysics();
-    draw();
-}, 120);
+window.onresize = resize; resize();
+setInterval(() => { update(); draw(); }, 100);
 </script>
+
+<!-- Link your level file here -->
+<script src="level1.js"></script>
 </body>
 </html>
