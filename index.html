@@ -3,32 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jungle Rescue: HD Arcade</title>
+    <title>Jungle Rescue Arcade</title>
     <style>
-        body { margin: 0; background: #020502; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', monospace; }
-        canvas { background: #0d1a0d; image-rendering: pixelated; border: 6px solid #2d4a2d; border-radius: 10px; box-shadow: 0 0 20px rgba(0,255,0,0.2); }
+        body { margin: 0; background: #020502; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Arial', sans-serif; }
+        canvas { background: #0d1a0d; image-rendering: pixelated; border: 4px solid #2d4a2d; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 
 <script>
-const TILE_SIZE = 40;
-const GRID_W = 20; 
-const GRID_H = 12;
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// 16:9 Arcade Resolution
+const TILE_SIZE = 40;
+const GRID_W = 16;
+const GRID_H = 9;
+canvas.width = 640;
+canvas.height = 360;
+
 let gameState = "PLAYING";
 let hasKey = false;
-const sprites = {};
+let player = { x: 1, y: 1 };
 
-function createHighDetailSprites() {
+// --- MAP DATA (Level 1) ---
+// 0:Path, 1:Tree, 2:Grass, 3:Stone, 4:Goal, 5:Water, 6:Key
+let level = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,2,2,3,2,2,1,1,2,2,2,2,2,2,1],
+    [1,0,1,1,1,1,2,5,5,2,3,2,3,2,2,1],
+    [1,0,2,2,2,2,2,5,5,2,2,2,2,2,2,1],
+    [1,1,1,1,3,1,1,1,1,1,2,1,1,1,2,1],
+    [1,2,2,2,0,2,3,2,2,0,2,0,3,2,6,1],
+    [1,2,3,2,3,2,2,1,1,1,1,1,1,2,2,1],
+    [1,2,2,2,2,2,2,2,2,2,2,2,2,2,4,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// --- SPRITE GENERATOR (Play Store Style) ---
+const sprites = {};
+function createSprites() {
     const sCanvas = document.createElement('canvas');
     const sCtx = sCanvas.getContext('2d');
-    sCanvas.width = TILE_SIZE; sCanvas.height = TILE_SIZE;
+    sCanvas.width = 40; sCanvas.height = 40;
 
-    const drawToSprite = (name, drawFn) => {
+    const generate = (name, drawFn) => {
         sCtx.clearRect(0,0,40,40);
         drawFn(sCtx);
         const img = new Image();
@@ -36,56 +56,135 @@ function createHighDetailSprites() {
         sprites[name] = img;
     };
 
-    // --- REAL GRASS TILE ---
-    drawToSprite('foliage', c => {
-        c.fillStyle = '#2d5a27'; c.fillRect(0,0,40,40); // Base Dark Green
-        c.fillStyle = '#3d7a36'; // Mid Green blades
-        for(let i=0; i<40; i++) c.fillRect(Math.random()*36, Math.random()*36, 2, 4);
-        c.fillStyle = '#4ea345'; // Highlights
-        for(let i=0; i<15; i++) c.fillRect(Math.random()*36, Math.random()*36, 1, 2);
+    // 1. HIGH-DETAIL GRASS (Texture Dithering)
+    generate('grass', c => {
+        c.fillStyle = '#2d5a27'; c.fillRect(0,0,40,40);
+        for(let i=0; i<60; i++) {
+            c.fillStyle = Math.random() > 0.5 ? '#3d7a36' : '#1e3d1a';
+            c.fillRect(Math.random()*38, Math.random()*38, 2, 4);
+        }
     });
 
-    // --- REAL STONE (BOULDER) ---
-    drawToSprite('stone', c => {
-        c.fillStyle = '#444'; c.beginPath(); c.arc(20,22,18,0,7); c.fill(); // Shadow
-        c.fillStyle = '#777'; c.beginPath(); c.arc(20,20,17,0,7); c.fill(); // Body
-        c.fillStyle = '#999'; c.beginPath(); c.arc(14,14,10,0,7); c.fill(); // Light side
-        c.strokeStyle = '#333'; c.lineWidth = 1; c.strokeRect(10,25,5,2); // Cracks
+    // 2. ARCADE STONE (3D Shading)
+    generate('stone', c => {
+        c.fillStyle = '#444'; c.beginPath(); c.arc(20,22,18,0,7); c.fill();
+        c.fillStyle = '#7a7a7a'; c.beginPath(); c.arc(20,20,17,0,7); c.fill();
+        c.fillStyle = '#ababab'; c.beginPath(); c.arc(14,14,8,0,7); c.fill();
     });
 
-    // --- JUNGLE TREE (WALL) ---
-    drawToSprite('tree', c => {
-        c.fillStyle = '#1a331a'; c.fillRect(0,0,40,40);
-        c.fillStyle = '#0f260f'; // Leaf clusters
-        c.beginPath(); c.arc(10,10,12,0,7); c.arc(30,10,12,0,7); c.arc(20,30,15,0,7); c.fill();
-        c.fillStyle = '#274d27'; // Top highlight
-        c.beginPath(); c.arc(20,15,10,0,7); c.fill();
+    // 3. JUNGLE TREE
+    generate('tree', c => {
+        c.fillStyle = '#0a1a0a'; c.fillRect(0,0,40,40);
+        c.fillStyle = '#1b4d1b'; c.beginPath(); c.arc(20,20,18,0,7); c.fill();
+        c.fillStyle = '#2d5a27'; c.beginPath(); c.arc(15,15,10,0,7); c.fill();
     });
 
-    // --- ARCADE CHARACTER (EXPLORER) ---
-    drawToSprite('hero', c => {
-        c.fillStyle = '#5d4037'; c.fillRect(10,22,20,12); // Shirt/Vest
+    // 4. CHARACTER (Real Explorer)
+    generate('hero', c => {
         c.fillStyle = '#ffdbac'; c.fillRect(12,10,16,14); // Face
+        c.fillStyle = '#5d4037'; c.fillRect(10,22,20,12); // Shirt
+        c.fillStyle = '#795548'; c.fillRect(6,8,28,4); c.fillRect(10,2,20,8); // Hat
         c.fillStyle = '#222'; c.fillRect(14,15,2,2); c.fillRect(24,15,2,2); // Eyes
-        c.fillStyle = '#795548'; c.fillRect(6,8,28,4); // Hat Rim
-        c.fillRect(10,2,20,8); // Hat Top
-        c.fillStyle = '#3e2723'; c.fillRect(10,34,8,6); c.fillRect(22,34,8,6); // Boots
     });
 
-    // --- KEY & WATER ---
-    drawToSprite('key', c => {
-        c.fillStyle = '#ffd700'; c.fillRect(18,10,4,20); c.fillRect(14,10,12,6); // Gold Key
-    });
-    drawToSprite('water', c => {
-        c.fillStyle = '#1e88e5'; c.fillRect(0,0,40,40);
-        c.fillStyle = '#bbdefb'; c.fillRect(5,15,15,2); c.fillRect(20,25,10,2); // Waves
+    // 5. KEY & WATER
+    generate('key', c => { c.fillStyle='#ffd700'; c.fillRect(18,10,4,20); c.fillRect(14,10,12,6); });
+    generate('water', c => { 
+        c.fillStyle='#1e88e5'; c.fillRect(0,0,40,40);
+        c.fillStyle='#bbdefb'; c.fillRect(5,15,15,2); c.fillRect(20,25,10,2);
     });
 }
-createHighDetailSprites();
+createSprites();
 
-// [Insert the rest of the Move, Physics, and Draw logic from previous message]
-// Logic remains same, but draw() calls these new high-detail sprites.
+// --- GAME LOGIC ---
+function move(dx, dy) {
+    if (gameState !== "PLAYING") return;
+    let nx = player.x + dx, ny = player.y + dy;
+    let target = level[ny][nx];
+
+    if (target === 1 || target === 5) return; // Walls/Water
+    if (target === 3 && dy === 0) { // Push stone
+        if (level[ny][nx+dx] === 0) { level[ny][nx+dx]=3; level[ny][nx]=0; } else return;
+    } else if (target === 3) return;
+
+    if (target === 4) {
+        if(hasKey) { gameState = "WIN"; return; }
+        else return;
+    }
+    if (target === 6) { hasKey = true; }
+
+    level[ny][nx] = 0; // Dig grass
+    player.x = nx; player.y = ny;
+}
+
+function updatePhysics() {
+    if (gameState !== "PLAYING") return;
+    for (let y = GRID_H - 2; y >= 0; y--) {
+        for (let x = 0; x < GRID_W; x++) {
+            if (level[y][x] === 3 && level[y+1][x] === 0) {
+                level[y][x] = 0; level[y+1][x] = 3;
+                if (player.x === x && player.y === y + 1) gameState = "GAMEOVER";
+            }
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
+            let t = level[y][x];
+            let px = x * TILE_SIZE, py = y * TILE_SIZE;
+            if (t === 1) ctx.drawImage(sprites.tree, px, py);
+            if (t === 2) ctx.drawImage(sprites.grass, px, py);
+            if (t === 3) ctx.drawImage(sprites.stone, px, py);
+            if (t === 5) ctx.drawImage(sprites.water, px, py);
+            if (t === 6) ctx.drawImage(sprites.key, px, py);
+            if (t === 4) {
+                ctx.fillStyle = hasKey ? "#00ff00" : "#ff0000";
+                ctx.fillRect(px+10, py+10, 20, 20); // Door
+            }
+        }
+    }
+    ctx.drawImage(sprites.hero, player.x * TILE_SIZE, player.y * TILE_SIZE);
+
+    if (gameState !== "PLAYING") {
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(0,0,canvas.width, canvas.height);
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.font = "24px Arial";
+        ctx.fillText(gameState === "WIN" ? "LEVEL CLEAR!" : "CRUSHED! GAME OVER", 320, 180);
+        ctx.font = "14px Arial";
+        ctx.fillText("TAP TO RESTART", 320, 210);
+    }
+}
+
+// --- INPUTS ---
+window.addEventListener('keydown', e => {
+    if(e.key === 'ArrowUp') move(0,-1);
+    if(e.key === 'ArrowDown') move(0,1);
+    if(e.key === 'ArrowLeft') move(-1,0);
+    if(e.key === 'ArrowRight') move(1,0);
+});
+
+canvas.addEventListener('mousedown', () => {
+    if (gameState !== "PLAYING") location.reload();
+});
+
+// Loop
+setInterval(() => {
+    updatePhysics();
+    draw();
+}, 100);
+
+// Scaling
+function resize() {
+    let scale = Math.min(window.innerWidth/640, window.innerHeight/360);
+    canvas.style.width = (640 * scale) + "px";
+    canvas.style.height = (360 * scale) + "px";
+}
+window.onresize = resize; resize();
 </script>
-<script src="level1.js"></script>
 </body>
 </html>
