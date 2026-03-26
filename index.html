@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rescue Rush - Level 1</title>
+    <title>Jungle Rescue - Level 1</title>
     <style>
-        body { margin: 0; background: #1a1a1a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        canvas { background: #000; border: 4px solid #444; }
+        body { margin: 0; background: #0a1a0a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: #152b15; border: 5px solid #2d5a27; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -17,18 +17,18 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// --- Configuration ---
 const TILE_SIZE = 40;
 const GRID_W = 16;
 const GRID_H = 9;
-// 0: Empty, 1: Wall (Blue), 2: Soil (Brown), 3: Boulder (Gray), 4: Exit (Gold)
+
+// 0: Path, 1: Tree, 2: Foliage, 3: Stone, 4: Exit
 let level = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,2,2,3,2,2,1,1,2,2,2,2,2,2,1],
     [1,0,1,1,1,1,2,1,1,2,3,2,3,2,2,1],
-    [1,0,0,0,0,2,2,2,2,2,2,2,2,2,2,1],
+    [1,0,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
     [1,1,1,1,3,1,1,1,1,1,2,1,1,1,2,1],
-    [1,2,2,2,2,2,2,2,2,0,2,0,3,0,2,1],
+    [1,2,2,2,2,2,3,2,2,0,2,0,3,0,2,1],
     [1,2,3,2,3,2,2,1,1,1,1,1,1,2,2,1],
     [1,2,2,2,2,2,2,2,2,2,2,2,2,2,4,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
@@ -36,41 +36,36 @@ let level = [
 
 let player = { x: 1, y: 1 };
 
-// --- Logic ---
 function movePlayer(dx, dy) {
     let nx = player.x + dx;
     let ny = player.y + dy;
     let target = level[ny][nx];
 
-    if (target === 1) return; // Wall
+    if (target === 1) return; // Tree wall
 
-    // Pushing Boulders
-    if (target === 3 && dy === 0) { 
-        if (level[ny][nx + dx] === 0) { // If space behind boulder is empty
+    if (target === 3 && dy === 0) { // Push Stone
+        if (level[ny][nx + dx] === 0) {
             level[ny][nx + dx] = 3;
             level[ny][nx] = 0;
         } else { return; }
-    } else if (target === 3 && dy !== 0) { return; } // Can't push up/down
+    } else if (target === 3 && dy !== 0) { return; }
 
     if (target === 4) {
-        alert("Level 1 Clear! Moving to next area...");
-        location.reload(); 
+        alert("Level 1 Clear! Onto the deeper jungle...");
+        location.reload();
     }
 
-    // Move player and clear soil
-    level[ny][nx] = 0;
+    level[ny][nx] = 0; // Clear foliage
     player.x = nx;
     player.y = ny;
 }
 
-// Falling Boulders Logic
 function updatePhysics() {
     for (let y = GRID_H - 2; y >= 0; y--) {
         for (let x = 0; x < GRID_W; x++) {
             if (level[y][x] === 3 && level[y+1][x] === 0) {
-                // If boulder falls on player
                 if (player.x === x && player.y === y + 1) {
-                    alert("CRUSHED! Try again.");
+                    alert("CRUSHED BY A BOULDER!");
                     player = {x: 1, y: 1};
                 }
                 level[y][x] = 0;
@@ -80,57 +75,50 @@ function updatePhysics() {
     }
 }
 
-// --- Rendering ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = "30px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
     for (let y = 0; y < GRID_H; y++) {
         for (let x = 0; x < GRID_W; x++) {
             let t = level[y][x];
-            if (t === 1) ctx.fillStyle = '#2c3e50'; // Wall
-            if (t === 2) ctx.fillStyle = '#8e44ad'; // Soil (Breakable)
-            if (t === 3) ctx.fillStyle = '#7f8c8d'; // Boulder
-            if (t === 4) ctx.fillStyle = '#f1c40f'; // Exit
-            
-            if (t !== 0) {
-                if (t === 3) { // Draw boulder as circle
-                    ctx.beginPath();
-                    ctx.arc(x*40+20, y*40+20, 18, 0, Math.PI*2);
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(x*40, y*40, 38, 38);
-                }
-            }
+            let px = x * TILE_SIZE + TILE_SIZE/2;
+            let py = y * TILE_SIZE + TILE_SIZE/2;
+
+            if (t === 1) ctx.fillText("🌳", px, py);
+            if (t === 2) ctx.fillText("🌿", px, py);
+            if (t === 3) ctx.fillText("🪨", px, py);
+            if (t === 4) ctx.fillText("🚪", px, py);
         }
     }
-    // Draw Player
-    ctx.fillStyle = '#2ecc71';
-    ctx.fillRect(player.x*40 + 5, player.y*40 + 5, 30, 30);
+    // Draw Character
+    ctx.fillText("🤠", player.x * TILE_SIZE + TILE_SIZE/2, player.y * TILE_SIZE + TILE_SIZE/2);
 }
 
-// --- Input & Loop ---
+// Controls
 window.addEventListener('keydown', e => {
-    if(e.key.includes('Arrow')) {
-        let dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-        let dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-        movePlayer(dx, dy);
-    }
+    if(e.key === 'ArrowRight') movePlayer(1, 0);
+    if(e.key === 'ArrowLeft') movePlayer(-1, 0);
+    if(e.key === 'ArrowUp') movePlayer(0, -1);
+    if(e.key === 'ArrowDown') movePlayer(0, 1);
 });
 
-// Responsive Canvas
+// Canvas Scaling for Poki (16:9)
 function resize() {
     canvas.width = 640; canvas.height = 360;
     let scale = Math.min(window.innerWidth/640, window.innerHeight/360);
     canvas.style.width = (640 * scale) + "px";
     canvas.style.height = (360 * scale) + "px";
 }
-
 window.onresize = resize;
 resize();
 
 setInterval(() => {
     updatePhysics();
     draw();
-}, 100);
+}, 120);
 </script>
 </body>
 </html>
