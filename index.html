@@ -3,54 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rescue Rush</title>
+    <title>Rescue Rush: Poki Edition</title>
     <style>
-        body { margin: 0; background: #020502; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', Courier, monospace; touch-action: none; }
-        #gameContainer { position: relative; }
-        canvas { background: #0d1a0d; image-rendering: pixelated; border: 4px solid #2d4a2d; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: block; }
+        body { margin: 0; background: #111; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', Courier, monospace; touch-action: none; }
+        #gameContainer { position: relative; background: #000; }
+        canvas { background: #0d1a0d; image-rendering: pixelated; display: block; width: 100%; height: 100%; }
         
-        /* UI Overlay */
-        #uiLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; }
-        .panel { background: rgba(0,0,0,0.85); padding: 20px; border: 2px solid #fff; border-radius: 10px; pointer-events: auto; }
-        h1 { color: #ffd700; margin-top: 0; font-size: 32px; text-transform: uppercase; }
-        button { background: #2d5a27; color: white; border: 2px solid #4ade80; padding: 10px 20px; font-size: 18px; cursor: pointer; font-family: inherit; margin: 5px; border-radius: 5px; }
-        button:active { background: #1b4d1b; }
-        #btnPause { position: absolute; top: 10px; right: 10px; padding: 5px 10px; font-size: 14px; pointer-events: auto; }
+        /* UI Overlays */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; }
+        .panel { background: rgba(0,0,0,0.9); padding: 20px 40px; border: 2px solid #fff; border-radius: 10px; pointer-events: auto; }
+        h1 { color: #ffd700; margin-top: 0; font-size: 32px; text-transform: uppercase; text-shadow: 2px 2px 0 #000; }
+        button { background: #2d5a27; color: white; border: 2px solid #4ade80; padding: 12px 24px; font-size: 18px; font-weight: bold; cursor: pointer; font-family: inherit; margin: 10px; border-radius: 5px; transition: transform 0.1s; }
+        button:active { transform: scale(0.95); background: #1b4d1b; }
+        
+        #btnPause { position: absolute; top: 10px; right: 10px; padding: 5px 15px; font-size: 14px; pointer-events: auto; display: none; z-index: 10; }
 
         /* Mobile D-PAD */
-        #mobileControls { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; display: none; pointer-events: auto; }
-        .dpad-btn { position: absolute; width: 40px; height: 40px; background: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.6); border-radius: 5px; color: white; font-weight: bold; line-height: 36px; text-align: center; user-select: none; }
+        #mobileControls { position: absolute; bottom: 20px; left: 20px; width: 140px; height: 140px; display: none; pointer-events: auto; z-index: 10; }
+        .dpad-btn { position: absolute; width: 45px; height: 45px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 8px; color: white; font-weight: bold; line-height: 41px; text-align: center; user-select: none; }
         .dpad-btn:active { background: rgba(255,255,255,0.6); }
-        #up { top: 0; left: 40px; } #down { bottom: 0; left: 40px; }
-        #left { top: 40px; left: 0; } #right { top: 40px; right: 0; }
+        #up { top: 0; left: 47px; } #down { bottom: 0; left: 47px; }
+        #left { top: 47px; left: 0; } #right { top: 47px; right: 0; }
         
-        @media (max-width: 768px) { #mobileControls { display: block; } } /* Show D-Pad on mobile */
+        @media (max-width: 768px) { #mobileControls { display: block; } }
+
+        /* Intro Video Banner Style */
+        #introScreen { background: #000; z-index: 100; }
+        .video-placeholder { width: 80%; max-width: 400px; height: 200px; background: #333; display: flex; justify-content: center; align-items: center; border: 2px dashed #666; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
 <div id="gameContainer">
     <canvas id="gameCanvas"></canvas>
-    <button id="btnPause" style="display:none;" onclick="togglePause()">PAUSE</button>
     
-    <div id="uiLayer">
-        <div id="mainMenu" class="panel">
+    <button id="btnPause" onclick="pauseGame()">|| PAUSE</button>
+    
+    <div id="introScreen" class="overlay">
+        <div class="video-placeholder">
+            <h2 style="color:#888;">[ Sponsor Video Ad ]</h2>
+        </div>
+        <h2>Starting in <span id="introTimer">5</span>...</h2>
+        <button onclick="skipIntro()">SKIP >></button>
+    </div>
+
+    <div id="uiLayer" class="overlay" style="display:none; pointer-events:none;">
+        <div id="mainMenu" class="panel" style="display:none;">
             <h1>Rescue Rush</h1>
-            <p>Use Arrows or D-Pad to move.</p>
-            <p>Push stones, avoid Fire & Snakes!</p>
-            <button onclick="startGame()">PLAY</button>
+            <p>Push stones, avoid Fire & Wolves!</p>
+            <button onclick="startGame()">PLAY GAME</button>
         </div>
         <div id="messageScreen" class="panel" style="display:none;">
             <h1 id="msgTitle">Game Over</h1>
-            <button onclick="location.reload()">RESTART LEVEL</button>
+            <button id="btnAction" onclick="handleAction()">RESTART</button>
         </div>
     </div>
 
     <div id="mobileControls">
-        <div class="dpad-btn" id="up">U</div>
-        <div class="dpad-btn" id="down">D</div>
-        <div class="dpad-btn" id="left">L</div>
-        <div class="dpad-btn" id="right">R</div>
+        <div class="dpad-btn" id="up">W</div>
+        <div class="dpad-btn" id="down">S</div>
+        <div class="dpad-btn" id="left">A</div>
+        <div class="dpad-btn" id="right">D</div>
     </div>
 </div>
 
@@ -59,174 +72,168 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-
 const TILE_SIZE = 40;
-const VIEW_W = 16; // Visible tiles width (16:9 ratio)
-const VIEW_H = 9;  // Visible tiles height
-canvas.width = VIEW_W * TILE_SIZE; // 640
-canvas.height = VIEW_H * TILE_SIZE; // 360
+canvas.width = 640; canvas.height = 360; // Internal 16:9 resolution
 
-let gameState = "MENU"; // MENU, PLAYING, PAUSED, GAMEOVER, WIN
+// Engine State
+let gameState = "INTRO"; // INTRO, MENU, PLAYING, PAUSED, GAMEOVER, LEVEL_CLEAR
+let currentLevelIndex = 0;
+let level = [];
+let player = { x: 0, y: 0 };
 let hasKey = false;
-let player = window.playerPos || { x: 1, y: 1 };
-let level = window.currentLevel || [];
-let camX = 0, camY = 0;
 let tickCounter = 0;
+let camX = 0, camY = 0;
+let currentActionType = ""; // Tracks what the menu button should do
 
-// --- SPRITE GENERATOR ---
-const sprites = {};
-function createSprites() {
-    const sCanvas = document.createElement('canvas');
-    const sCtx = sCanvas.getContext('2d');
-    sCanvas.width = 40; sCanvas.height = 40;
+// --- SPRITE SHEET GENERATOR ---
+const spriteSheet = document.createElement('canvas');
+spriteSheet.width = 160; spriteSheet.height = 80;
+const sCtx = spriteSheet.getContext('2d');
 
-    const generate = (name, drawFn) => {
-        sCtx.clearRect(0,0,40,40);
-        drawFn(sCtx);
-        const img = new Image();
-        img.src = sCanvas.toDataURL();
-        sprites[name] = img;
-    };
+function buildSpriteSheet() {
+    // Row 1: Grass(0,0), Tree(40,0), Stone(80,0), Door(120,0)
+    sCtx.fillStyle = '#2d5a27'; sCtx.fillRect(0,0,40,40);
+    for(let i=0; i<80; i++) { sCtx.fillStyle = Math.random() > 0.5 ? '#3d7a36' : '#1e3d1a'; sCtx.fillRect(Math.random()*38, Math.random()*38, 2, 4); }
+    sCtx.fillStyle = '#0a1a0a'; sCtx.fillRect(40,0,40,40); sCtx.fillStyle = '#1b4d1b'; sCtx.beginPath(); sCtx.arc(60,20,18,0,7); sCtx.fill();
+    sCtx.fillStyle = '#555'; sCtx.beginPath(); sCtx.arc(100,22,18,0,7); sCtx.fill(); sCtx.fillStyle = '#888'; sCtx.beginPath(); sCtx.arc(96,18,12,0,7); sCtx.fill();
+    sCtx.fillStyle = '#5d4037'; sCtx.fillRect(125,5,30,35); sCtx.fillStyle = '#3e2723'; sCtx.fillRect(128,8,24,32);
 
-    generate('grass', c => {
-        c.fillStyle = '#2d5a27'; c.fillRect(0,0,40,40);
-        for(let i=0; i<60; i++) {
-            c.fillStyle = Math.random() > 0.5 ? '#3d7a36' : '#1e3d1a';
-            c.fillRect(Math.random()*38, Math.random()*38, 2, 4);
-        }
-    });
-    generate('stone', c => {
-        c.fillStyle = '#444'; c.beginPath(); c.arc(20,22,18,0,7); c.fill();
-        c.fillStyle = '#7a7a7a'; c.beginPath(); c.arc(20,20,17,0,7); c.fill();
-        c.fillStyle = '#ababab'; c.beginPath(); c.arc(14,14,8,0,7); c.fill();
-    });
-    generate('tree', c => {
-        c.fillStyle = '#0a1a0a'; c.fillRect(0,0,40,40);
-        c.fillStyle = '#1b4d1b'; c.beginPath(); c.arc(20,20,18,0,7); c.fill();
-        c.fillStyle = '#2d5a27'; c.beginPath(); c.arc(15,15,10,0,7); c.fill();
-    });
-    generate('hero', c => {
-        c.fillStyle = '#ffdbac'; c.fillRect(12,10,16,14);
-        c.fillStyle = '#5d4037'; c.fillRect(10,22,20,12);
-        c.fillStyle = '#795548'; c.fillRect(6,8,28,4); c.fillRect(10,2,20,8);
-        c.fillStyle = '#222'; c.fillRect(14,15,2,2); c.fillRect(24,15,2,2);
-    });
-    generate('key', c => { c.fillStyle='#ffd700'; c.fillRect(18,10,4,20); c.fillRect(14,10,12,6); });
-    generate('water', c => { 
-        c.fillStyle='#1e88e5'; c.fillRect(0,0,40,40);
-        c.fillStyle='#bbdefb'; c.fillRect(5,15,15,2); c.fillRect(20,25,10,2);
-    });
-    generate('fire', c => {
-        c.fillStyle='#d84315'; c.beginPath(); c.arc(20,25,12,0,7); c.fill();
-        c.fillStyle='#ff9800'; c.beginPath(); c.arc(20,28,8,0,7); c.fill();
-        c.fillStyle='#ffeb3b'; c.beginPath(); c.arc(20,30,4,0,7); c.fill();
-    });
-    generate('snake', c => {
-        c.fillStyle='#4caf50'; c.fillRect(10,20,20,10); // body
-        c.fillStyle='#388e3c'; c.fillRect(15,15,15,15); // head
-        c.fillStyle='red'; c.fillRect(30,20,6,2); // tongue
-        c.fillStyle='white'; c.fillRect(22,18,4,4); // eye
-        c.fillStyle='black'; c.fillRect(24,19,2,2); // pupil
-    });
+    // Row 2: Key Image(0,40), Fire(40,40), Wolf(80,40), Hero(120,40)
+    // Detailed Gold Key Image
+    sCtx.fillStyle='#ffb300'; sCtx.beginPath(); sCtx.arc(15, 60, 8, 0, 7); sCtx.fill(); // Key head
+    sCtx.fillStyle='#000'; sCtx.beginPath(); sCtx.arc(15, 60, 4, 0, 7); sCtx.fill(); // Key hole
+    sCtx.fillStyle='#ffb300'; sCtx.fillRect(20, 58, 16, 4); // Shaft
+    sCtx.fillRect(28, 62, 4, 6); sCtx.fillRect(34, 62, 4, 4); // Teeth
+    
+    // Fire
+    sCtx.fillStyle='#d84315'; sCtx.beginPath(); sCtx.moveTo(60,75); sCtx.lineTo(50,55); sCtx.lineTo(70,55); sCtx.fill();
+    sCtx.fillStyle='#ff9800'; sCtx.beginPath(); sCtx.moveTo(60,75); sCtx.lineTo(55,60); sCtx.lineTo(65,60); sCtx.fill();
+    // Wolf
+    sCtx.fillStyle='#757575'; sCtx.fillRect(85,55,25,15); sCtx.fillStyle='#616161'; sCtx.fillRect(82,50,15,12);
+    sCtx.fillStyle='#9e9e9e'; sCtx.fillRect(86,65,4,10); sCtx.fillRect(104,65,4,10); sCtx.fillStyle='#ff0000'; sCtx.fillRect(85,53,2,2);
+    // Hero
+    sCtx.fillStyle = '#ffdbac'; sCtx.fillRect(132,50,16,14); sCtx.fillStyle = '#1e88e5'; sCtx.fillRect(130,62,20,12);
+    sCtx.fillStyle = '#333'; sCtx.fillRect(134,74,4,6); sCtx.fillRect(142,74,4,6);
 }
-createSprites();
+buildSpriteSheet();
 
-// --- GAME LOGIC ---
-function startGame() {
-    document.getElementById('mainMenu').style.display = 'none';
-    document.getElementById('btnPause').style.display = 'block';
-    gameState = "PLAYING";
+function drawSprite(srcX, srcY, destX, destY) { ctx.drawImage(spriteSheet, srcX, srcY, 40, 40, destX, destY, 40, 40); }
+
+// --- INTRO & MENUS ---
+let introTime = 5;
+let introInterval = setInterval(() => {
+    introTime--;
+    document.getElementById('introTimer').innerText = introTime;
+    if(introTime <= 0) skipIntro();
+}, 1000);
+
+function skipIntro() {
+    clearInterval(introInterval);
+    document.getElementById('introScreen').style.display = 'none';
+    document.getElementById('uiLayer').style.display = 'flex';
+    document.getElementById('mainMenu').style.display = 'block';
+    gameState = "MENU";
 }
 
-function togglePause() {
-    if (gameState === "PLAYING") {
-        gameState = "PAUSED";
-        showScreen("Game Paused");
-    } else if (gameState === "PAUSED") {
-        document.getElementById('messageScreen').style.display = 'none';
+function showScreen(title, btnText, actionType) {
+    document.getElementById('uiLayer').style.display = 'flex';
+    document.getElementById('messageScreen').style.display = 'block';
+    document.getElementById('msgTitle').innerText = title;
+    document.getElementById('btnAction').innerText = btnText;
+    document.getElementById('btnPause').style.display = 'none';
+    currentActionType = actionType;
+}
+
+function handleAction() {
+    if (currentActionType === "RESUME") {
         gameState = "PLAYING";
+        document.getElementById('uiLayer').style.display = 'none';
+        document.getElementById('messageScreen').style.display = 'none';
+        document.getElementById('btnPause').style.display = 'block';
+    } else if (currentActionType === "RESTART") {
+        loadLevel(currentLevelIndex);
+    } else if (currentActionType === "NEXT") {
+        currentLevelIndex++;
+        if (currentLevelIndex < window.levels.length) loadLevel(currentLevelIndex);
+        else { showScreen("YOU BEAT THE GAME!", "PLAY AGAIN", "RESTART"); currentLevelIndex = 0; }
     }
 }
 
-function showScreen(text) {
-    document.getElementById('messageScreen').style.display = 'block';
-    document.getElementById('msgTitle').innerText = text;
-    document.getElementById('btnPause').style.display = 'none';
+function pauseGame() {
+    if(gameState === 'PLAYING') {
+        gameState = 'PAUSED';
+        showScreen('GAME PAUSED', 'RESUME', 'RESUME');
+    }
 }
 
+// Poki Requirement: Auto-pause when tab loses focus
+window.addEventListener('blur', () => { if(gameState === 'PLAYING') pauseGame(); });
+
+function loadLevel(index) {
+    let levelData = window.levels[index];
+    level = levelData.map.map(row => [...row]); 
+    player = { x: levelData.player.x, y: levelData.player.y };
+    hasKey = false;
+    gameState = "PLAYING";
+    
+    document.getElementById('uiLayer').style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('messageScreen').style.display = 'none';
+    document.getElementById('btnPause').style.display = 'block';
+}
+
+function startGame() { currentLevelIndex = 0; loadLevel(currentLevelIndex); }
+
+// --- GAMEPLAY ---
 function updateCamera() {
-    let mapW = level[0].length;
-    let mapH = level.length;
-    // Center camera on player, clamp to map edges
-    camX = Math.max(0, Math.min(player.x - Math.floor(VIEW_W / 2), mapW - VIEW_W));
-    camY = Math.max(0, Math.min(player.y - Math.floor(VIEW_H / 2), mapH - VIEW_H));
+    let mapW = level[0].length, mapH = level.length;
+    camX = Math.max(0, Math.min(player.x - 8, mapW - 16));
+    camY = Math.max(0, Math.min(player.y - 4, mapH - 9));
 }
 
 function move(dx, dy) {
     if (gameState !== "PLAYING") return;
     let nx = player.x + dx, ny = player.y + dy;
-    
-    // Bounds check
     if(ny < 0 || ny >= level.length || nx < 0 || nx >= level[0].length) return;
 
     let target = level[ny][nx];
-
-    if (target === 1 || target === 5) return; // Walls/Water
-    if (target === 7 || target === 8) { // Fire or Snake (Death)
-        gameState = "GAMEOVER";
-        showScreen("Burned or Bitten! GAME OVER");
-        return;
-    }
-    if (target === 3 && dy === 0) { // Push stone horizontally
+    if (target === 1) return; // Wall
+    if (target === 7 || target === 8) { gameState = "GAMEOVER"; showScreen("Defeated!", "RESTART LEVEL", "RESTART"); return; }
+    if (target === 3 && dy === 0) {
         if (level[ny][nx+dx] === 0) { level[ny][nx+dx]=3; level[ny][nx]=0; } else return;
-    } else if (target === 3) return; // Can't push up/down
+    } else if (target === 3) return; 
 
     if (target === 4) {
-        if(hasKey) { 
-            gameState = "WIN"; 
-            showScreen("LEVEL CLEAR!");
-            return; 
-        } else return; // Door locked
+        if(hasKey) { gameState = "LEVEL_CLEAR"; showScreen("LEVEL CLEAR!", "NEXT LEVEL", "NEXT"); return; } 
+        else return; 
     }
-    if (target === 6) { hasKey = true; }
+    if (target === 6) hasKey = true;
 
-    level[ny][nx] = 0; // Dig grass / clear key
-    player.x = nx; player.y = ny;
+    level[ny][nx] = 0; player.x = nx; player.y = ny;
 }
 
 function updatePhysics() {
     if (gameState !== "PLAYING") return;
     tickCounter++;
-    
-    let mapW = level[0].length;
-    let mapH = level.length;
+    let mapW = level[0].length, mapH = level.length;
 
-    // Gravity for Stones (Bottom to Top loop)
     for (let y = mapH - 2; y >= 0; y--) {
         for (let x = 0; x < mapW; x++) {
             if (level[y][x] === 3 && level[y+1][x] === 0) {
                 level[y][x] = 0; level[y+1][x] = 3;
-                if (player.x === x && player.y === y + 1) {
-                    gameState = "GAMEOVER";
-                    showScreen("CRUSHED! GAME OVER");
-                }
+                if (player.x === x && player.y === y + 1) { gameState = "GAMEOVER"; showScreen("CRUSHED!", "RESTART LEVEL", "RESTART"); }
             }
         }
     }
     
-    // Optional: Simple Snake Patrol Logic (Moves back and forth every 5 ticks)
-    if(tickCounter % 5 === 0) {
+    if(tickCounter % 6 === 0) {
         for (let y = 0; y < mapH; y++) {
             for (let x = 0; x < mapW; x++) {
                 if(level[y][x] === 8) {
-                    // Try to move left or right randomly if empty
-                    let dir = Math.random() > 0.5 ? 1 : -1;
+                    let dir = (player.y === y) ? (player.x < x ? -1 : 1) : (Math.random() > 0.5 ? 1 : -1);
                     if(x+dir >= 0 && x+dir < mapW && level[y][x+dir] === 0) {
-                        level[y][x] = 0;
-                        level[y][x+dir] = 8; // Move snake
-                        if (player.x === x+dir && player.y === y) {
-                            gameState = "GAMEOVER"; showScreen("Bitten! GAME OVER");
-                        }
+                        level[y][x] = 0; level[y][x+dir] = 8;
+                        if (player.x === x+dir && player.y === y) { gameState = "GAMEOVER"; showScreen("Wolf Attack!", "RESTART LEVEL", "RESTART"); }
                     }
                 }
             }
@@ -235,84 +242,65 @@ function updatePhysics() {
 }
 
 function draw() {
+    if(gameState === "MENU" || gameState === "INTRO") return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     updateCamera();
 
-    // Draw only visible map section
-    for (let y = 0; y < VIEW_H; y++) {
-        for (let x = 0; x < VIEW_W; x++) {
-            let mapX = camX + x;
-            let mapY = camY + y;
-            
+    for (let y = 0; y < 9; y++) {
+        for (let x = 0; x < 16; x++) {
+            let mapX = camX + x, mapY = camY + y;
             if(mapY >= level.length || mapX >= level[0].length) continue;
 
             let t = level[mapY][mapX];
             let px = x * TILE_SIZE, py = y * TILE_SIZE;
 
-            if (t === 1) ctx.drawImage(sprites.tree, px, py);
-            if (t === 2) ctx.drawImage(sprites.grass, px, py);
-            if (t === 3) ctx.drawImage(sprites.stone, px, py);
-            if (t === 5) ctx.drawImage(sprites.water, px, py);
-            if (t === 6) ctx.drawImage(sprites.key, px, py);
-            if (t === 7) ctx.drawImage(sprites.fire, px, py);
-            if (t === 8) ctx.drawImage(sprites.snake, px, py);
-            if (t === 4) {
-                ctx.fillStyle = hasKey ? "#4ade80" : "#d84315";
-                ctx.fillRect(px+10, py+10, 20, 20); // Door
-                ctx.strokeStyle = "#fff"; ctx.strokeRect(px+10,py+10,20,20);
-            }
+            if (t === 1) drawSprite(40, 0, px, py); // Tree
+            if (t === 2) drawSprite(0, 0, px, py); // Grass
+            if (t === 3) drawSprite(80, 0, px, py); // Stone
+            if (t === 4) drawSprite(120, 0, px, py); // Door
+            if (t === 6) drawSprite(0, 40, px, py); // Gold Key Image
+            if (t === 7) drawSprite(40, 40, px, py); // Fire
+            if (t === 8) drawSprite(80, 40, px, py); // Wolf
+            
+            if (t === 4 && hasKey) { ctx.fillStyle = "#4ade80"; ctx.fillRect(px+15, py+15, 10, 10); } // Door unlock light
         }
     }
     
-    // Draw Player (relative to camera)
     let drawPlayerX = (player.x - camX) * TILE_SIZE;
     let drawPlayerY = (player.y - camY) * TILE_SIZE;
     if(drawPlayerX >= 0 && drawPlayerX < canvas.width && drawPlayerY >= 0 && drawPlayerY < canvas.height) {
-        ctx.drawImage(sprites.hero, drawPlayerX, drawPlayerY);
+        drawSprite(120, 40, drawPlayerX, drawPlayerY);
     }
 }
 
-// --- INPUTS (Cross Platform) ---
+// Controls
 window.addEventListener('keydown', e => {
-    if(e.key === 'ArrowUp') move(0,-1);
-    if(e.key === 'ArrowDown') move(0,1);
-    if(e.key === 'ArrowLeft') move(-1,0);
-    if(e.key === 'ArrowRight') move(1,0);
+    if(e.key === 'ArrowUp' || e.key === 'w') move(0,-1);
+    if(e.key === 'ArrowDown' || e.key === 's') move(0,1);
+    if(e.key === 'ArrowLeft' || e.key === 'a') move(-1,0);
+    if(e.key === 'ArrowRight' || e.key === 'd') move(1,0);
+    if(e.key === 'Escape' || e.key === 'p') pauseGame();
 });
 
-// Mobile Controls D-Pad setup
 const attachBtn = (id, dx, dy) => {
     const btn = document.getElementById(id);
     const trigger = (e) => { e.preventDefault(); move(dx, dy); };
-    btn.addEventListener('touchstart', trigger);
+    btn.addEventListener('touchstart', trigger, {passive: false});
     btn.addEventListener('mousedown', trigger);
 };
-attachBtn('up', 0, -1);
-attachBtn('down', 0, 1);
-attachBtn('left', -1, 0);
-attachBtn('right', 1, 0);
+attachBtn('up', 0, -1); attachBtn('down', 0, 1); attachBtn('left', -1, 0); attachBtn('right', 1, 0);
 
+setInterval(() => { updatePhysics(); draw(); }, 100);
 
-// Loop
-setInterval(() => {
-    updatePhysics();
-    draw();
-}, 100);
-
-// Scaling to fit screen properly while maintaining 16:9 ratio
+// Poki Strict Resizing (Maintains 16:9 perfectly)
 function resize() {
-    let scale = Math.min(window.innerWidth/640, window.innerHeight/360);
+    let scale = Math.min(window.innerWidth / 640, window.innerHeight / 360);
     let finalWidth = 640 * scale;
     let finalHeight = 360 * scale;
-    canvas.style.width = finalWidth + "px";
-    canvas.style.height = finalHeight + "px";
     
-    // Keep UI layer matched to canvas dimensions
-    let uiLayer = document.getElementById('uiLayer');
-    uiLayer.style.width = finalWidth + "px";
-    uiLayer.style.height = finalHeight + "px";
-    uiLayer.style.left = (window.innerWidth - finalWidth) / 2 + "px";
-    uiLayer.style.top = (window.innerHeight - finalHeight) / 2 + "px";
+    let container = document.getElementById('gameContainer');
+    container.style.width = finalWidth + "px";
+    container.style.height = finalHeight + "px";
 }
 window.onresize = resize; resize();
 </script>
