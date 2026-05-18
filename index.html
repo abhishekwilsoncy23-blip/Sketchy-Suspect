@@ -3,197 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phone Transfer Client</title>
+    <title>Wireless File Share</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
             text-align: center;
             padding: 20px;
             margin: 0;
         }
-        h2 { color: #0056b3; }
+        .container { max-width: 450px; margin: 0 auto; }
+        h2 { color: #007bff; margin-bottom: 5px; }
+        p.subtitle { color: #6c757d; margin-top: 0; font-size: 14px; }
         
         #reader {
             width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: white;
         }
 
         .status-box {
-            margin: 20px auto;
+            margin: 20px 0;
             padding: 15px;
             border-radius: 8px;
             background: #fff;
-            max-width: 400px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            font-weight: 600;
+            font-size: 15px;
+            border-left: 5px solid #dc3545;
         }
 
-        /* UI Actions - Hidden by default */
         #actions {
             display: none; 
-            margin-top: 30px;
+            animation: fadeIn 0.5s ease-in-out;
         }
 
-        .action-card {
+        .card {
             background: white;
             padding: 20px;
-            border-radius: 10px;
+            border-radius: 12px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+            text-align: left;
         }
+        .card h3 { margin-top: 0; color: #495057; font-size: 16px; }
 
         .btn {
             display: block;
             width: 100%;
-            padding: 15px;
-            margin-top: 10px;
+            padding: 14px;
+            margin-top: 12px;
             background: #007bff;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            box-sizing: border-box;
         }
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn:disabled { background: #ced4da; color: #6c757d; cursor: not-allowed; }
+        .btn-send { background: #007bff; }
         .btn-receive { background: #28a745; }
         
         input[type="file"] {
+            display: block;
             width: 100%;
-            padding: 10px 0;
+            padding: 10px;
+            border: 1px dashed #ced4da;
+            border-radius: 6px;
+            box-sizing: border-box;
         }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-    <h2>📱 Phone Connect</h2>
+<div class="container">
+    <h2>📱 Local Node Client</h2>
+    <p class="subtitle">Decoupled File Exchange Architecture</p>
     
     <div id="reader"></div>
 
-    <div class="status-box" id="statusText">🔴 Waiting for QR Scan...</div>
+    <div class="status-box" id="statusText" style="border-left-color: #ffc107;">🔴 Waiting for Terminal QR Scan...</div>
 
     <div id="actions">
-        <div class="action-card">
-            <h3>⬆️ Send to PC</h3>
+        <div class="card">
+            <h3>⬆️ Upload File to PC</h3>
             <input type="file" id="fileInput">
-            <button class="btn" id="sendBtn" disabled>Send File</button>
-            <p id="uploadStatus" style="font-size: 14px; color: gray;"></p>
+            <button class="btn btn-send" id="sendBtn" disabled>Execute Upload</button>
+            <p id="uploadStatus" style="font-size: 13px; margin-top: 8px; text-align: center;"></p>
         </div>
 
-        <div class="action-card">
-            <h3>⬇️ Receive from PC</h3>
-            <button class="btn btn-receive" id="recvBtn">Download File</button>
+        <div class="card">
+            <h3>⬇️ Download File from PC</h3>
+            <button class="btn btn-receive" id="recvBtn">Download Target File</button>
         </div>
     </div>
+</div>
 
-    <script>
-        let pcServerUrl = "";
-        let html5QrcodeScanner = null;
+<script>
+    let pcServerUrl = "";
+    let html5QrcodeScanner = null;
 
-        // 1. Initialize the QR Scanner
-        function startScanner() {
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        }
+    function initScanner() {
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
 
-        // 2. When a QR code is successfully read
-        function onScanSuccess(decodedText, decodedResult) {
-            console.log(`Scan result: ${decodedText}`);
-            
-            // Stop scanning to save battery and hide the camera view
-            html5QrcodeScanner.clear();
-            document.getElementById('reader').style.display = 'none';
-            
-            pcServerUrl = decodedText;
-            document.getElementById('statusText').innerText = "🟡 Connecting to PC...";
+    function onScanSuccess(decodedText) {
+        html5QrcodeScanner.clear();
+        document.getElementById('reader').style.display = 'none';
+        
+        pcServerUrl = decodedText.trim();
+        const statusBox = document.getElementById('statusText');
+        statusBox.innerText = "🟡 Executing Local Handshake Pings...";
+        statusBox.style.borderLeftColor = "#ffc107";
 
-            // 3. Perform Handshake
-            performHandshake();
-        }
+        verifyHandshake();
+    }
 
-        function onScanFailure(error) {
-            // Silently handle read failures (happens every frame until a code is found)
-        }
+    function onScanFailure(error) { /* Noise filtering for scanner */ }
 
-        // 4. The Handshake Logic
-        function performHandshake() {
-            // We use an OPTIONS request to the /upload endpoint. 
-            // It's a lightweight way to check if the server is alive without sending data.
-            fetch(pcServerUrl + '/upload', {
-                method: 'OPTIONS'
-            })
-            .then(response => {
-                if (response.ok || response.status === 204) {
-                    // Handshake Success!
-                    document.getElementById('statusText').innerText = "🟢 Connected securely to PC!";
-                    document.getElementById('statusText').style.color = "green";
-                    
-                    // Reveal the UI actions
-                    document.getElementById('actions').style.display = 'block';
-                } else {
-                    throw new Error("Server responded, but not successfully.");
-                }
-            })
-            .catch(error => {
-                console.error("Handshake failed:", error);
-                document.getElementById('statusText').innerText = "🔴 Handshake Failed. Make sure PC and Phone are on the same Wi-Fi.";
-                document.getElementById('statusText').style.color = "red";
-            });
-        }
+    function verifyHandshake() {
+        // Ping the dedicated handshake endpoint
+        fetch(pcServerUrl + '/handshake', { method: 'GET', mode: 'cors' })
+        .then(res => {
+            if (!res.ok) throw new Error("Server rejected request");
+            return res.json();
+        })
+        .then(data => {
+            if(data.status === "authenticated") {
+                const statusBox = document.getElementById('statusText');
+                statusBox.innerHTML = "🟢 Handshake Verified! Node Interconnected.";
+                statusBox.style.borderLeftColor = "#28a745";
+                statusBox.style.color = "#155724";
+                
+                // Mount and Display Operations Panel
+                document.getElementById('actions').style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error("Connection failed:", err);
+            const statusBox = document.getElementById('statusText');
+            statusBox.style.borderLeftColor = "#dc3545";
+            statusBox.style.color = "#721c24";
 
-        // 5. Enable Send Button only when a file is selected
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const btn = document.getElementById('sendBtn');
-            btn.disabled = !e.target.files.length;
+            // AUTO-DIAGNOSIS: Check for HTTPS Mixed Content Restrictions
+            if (window.location.protocol === 'https:' && pcServerUrl.startsWith('http://')) {
+                statusBox.innerHTML = "❌ <b>Handshake Blocked (Mixed Content Error)</b><br><br>" +
+                    "Your phone client is hosted on a secure site (<b>HTTPS</b>), but your PC is projecting an insecure local URL (<b>HTTP</b>). Mobile browsers strictly block this.<br><br>" +
+                    "<b>Solution:</b> Fire up <code>ngrok http 8080</code> on your PC terminal, then update your Java string or manually paste that secure HTTPS ngrok link into a QR generator!";
+            } else {
+                statusBox.innerHTML = "❌ <b>Handshake Drop</b><br><br>Unable to resolve route to PC. Double-check that your firewall permits traffic on Port 8080 and that both nodes share the same Wi-Fi SSID.";
+            }
         });
+    }
 
-        // 6. Upload File Logic
-        document.getElementById('sendBtn').addEventListener('click', function() {
-            let fileInput = document.getElementById('fileInput');
-            let file = fileInput.files[0];
-            if (!file) return;
+    // Toggle Upload Button State
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        document.getElementById('sendBtn').disabled = !e.target.files.length;
+    });
 
-            let statusEl = document.getElementById('uploadStatus');
-            statusEl.innerText = "Uploading...";
-            this.disabled = true;
+    // Handle Stream Upload
+    document.getElementById('sendBtn').addEventListener('click', function() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) return;
 
-            // Send raw file bytes to the Java API
-            fetch(pcServerUrl + '/upload?name=' + encodeURIComponent(file.name), {
-                method: 'POST',
-                body: file
-            })
-            .then(response => response.json()) // We expect the JSON {"status": "success"} from Java
-            .then(data => {
-                if(data.status === "success") {
-                    statusEl.innerText = "✅ File Sent Successfully!";
-                    statusEl.style.color = "green";
-                    fileInput.value = ""; // Clear input
-                } else {
-                    throw new Error("Upload failed.");
-                }
-            })
-            .catch(error => {
-                statusEl.innerText = "❌ Upload Failed.";
-                statusEl.style.color = "red";
-                this.disabled = false;
-            });
+        const statusEl = document.getElementById('uploadStatus');
+        statusEl.innerText = "Streaming payload to disk...";
+        statusEl.style.color = "#6c757d";
+        this.disabled = true;
+
+        fetch(pcServerUrl + '/upload?name=' + encodeURIComponent(file.name), {
+            method: 'POST',
+            body: file,
+            mode: 'cors'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === "success") {
+                statusEl.innerText = "✅ Payload delivered safely!";
+                statusEl.style.color = "#28a745";
+                fileInput.value = ""; 
+            }
+        })
+        .catch(err => {
+            statusEl.innerText = "❌ Drop encountered during transfer.";
+            statusEl.style.color = "#dc3545";
+            this.disabled = false;
         });
+    });
 
-        // 7. Download File Logic
-        document.getElementById('recvBtn').addEventListener('click', function() {
-            // The simplest way to trigger a download is to redirect the browser to the file endpoint
-            window.location.href = pcServerUrl + '/download';
-        });
+    // Handle Download Redirection
+    document.getElementById('recvBtn').addEventListener('click', function() {
+        window.location.href = pcServerUrl + '/download';
+    });
 
-        // Start the scanner when the page loads
-        window.onload = startScanner;
-    </script>
+    window.onload = initScanner;
+</script>
 </body>
 </html>
