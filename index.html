@@ -2,252 +2,198 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile Rich Editor</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Transfer Client</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f5f5f7;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .editor-container {
-            flex: 1;
-            width: 100%;
-            padding: 20px;
-            padding-bottom: 90px;
-            font-size: 18px;
-            line-height: 1.6;
-            outline: none;
-            background-color: #ffffff;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .editor-container:empty::before {
-            content: "Tap to start typing...";
-            color: #bbb;
-        }
-
-        .fab-button {
-            position: fixed;
-            bottom: 25px;
-            right: 25px;
-            width: 56px;
-            height: 56px;
-            background-color: #007aff;
-            color: white;
-            border-radius: 50%;
-            border: none;
-            font-size: 28px;
-            font-weight: 300;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-            cursor: pointer;
-            z-index: 100;
-            transition: transform 0.2s ease;
-        }
-        .fab-button.active {
-            transform: rotate(45deg);
-            background-color: #ff3b30;
-        }
-
-        .options-menu {
-            position: fixed;
-            bottom: 95px;
-            right: 25px;
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            padding: 12px;
-            display: none;
-            flex-direction: column;
-            gap: 12px;
-            z-index: 99;
-            width: 260px; 
-            border: 1px solid #e5e5ea;
-        }
-        .options-menu.show {
-            display: flex;
-        }
-
-        .menu-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .menu-row button, .menu-row select {
-            flex: 1;
-            background-color: #f2f2f7;
-            border: none;
-            padding: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 8px;
-            color: #000000;
-            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
             text-align: center;
-            -webkit-appearance: none;
+            padding: 20px;
+            margin: 0;
         }
-        .menu-row button:active {
-            background-color: #e5e5ea;
-        }
-        .menu-row select {
-            text-align-last: center;
-        }
+        h2 { color: #0056b3; }
         
-        .btn-upload {
-            background-color: #34c759 !important;
-            color: white !important;
-        }
-        .btn-pdf {
-            background-color: #ff3b30 !important;
-            color: white !important;
+        #reader {
             width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .status-box {
+            margin: 20px auto;
+            padding: 15px;
+            border-radius: 8px;
+            background: #fff;
+            max-width: 400px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            font-weight: bold;
+        }
+
+        /* UI Actions - Hidden by default */
+        #actions {
+            display: none; 
+            margin-top: 30px;
+        }
+
+        .action-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin-top: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-receive { background: #28a745; }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 10px 0;
         }
     </style>
 </head>
 <body>
 
-    <div class="editor-container" id="editor" contenteditable="true"></div>
+    <h2>📱 Phone Connect</h2>
+    
+    <div id="reader"></div>
 
-    <button class="fab-button" id="fabBtn" onclick="toggleMenu(event)">+</button>
+    <div class="status-box" id="statusText">🔴 Waiting for QR Scan...</div>
 
-    <input type="file" id="imageInput" accept="image/*" style="display: none;">
-
-    <div class="options-menu" id="optionsMenu" onclick="event.stopPropagation()">
-        <div class="menu-row">
-            <button onmousedown="event.preventDefault()" onclick="format('bold')"><b>B</b></button>
-            <button onmousedown="event.preventDefault()" onclick="format('italic')"><i>I</i></button>
-            <button onmousedown="event.preventDefault()" onclick="format('underline')"><u>U</u></button>
+    <div id="actions">
+        <div class="action-card">
+            <h3>⬆️ Send to PC</h3>
+            <input type="file" id="fileInput">
+            <button class="btn" id="sendBtn" disabled>Send File</button>
+            <p id="uploadStatus" style="font-size: 14px; color: gray;"></p>
         </div>
 
-        <div class="menu-row">
-            <button onmousedown="event.preventDefault()" onclick="format('justifyLeft')">Left</button>
-            <button onmousedown="event.preventDefault()" onclick="format('justifyCenter')">Center</button>
-            <button onmousedown="event.preventDefault()" onclick="format('justifyRight')">Right</button>
-        </div>
-
-        <div class="menu-row">
-            <select onmousedown="event.preventDefault()" onchange="format('fontSize', this.value); this.selectedIndex=0;">
-                <option value="" disabled selected>Size</option>
-                <option value="3">Normal</option>
-                <option value="5">Large</option>
-                <option value="7">Huge</option>
-            </select>
-            <select onmousedown="event.preventDefault()" onchange="format('fontName', this.value); this.selectedIndex=0;">
-                <option value="" disabled selected>Style</option>
-                <option value="Arial">Arial</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Courier New">Courier</option>
-                <option value="Times New Roman">Times</option>
-            </select>
-        </div>
-
-        <div class="menu-row">
-            <button onmousedown="event.preventDefault()" onclick="format('insertUnorderedList')">• List</button>
-            <button onmousedown="event.preventDefault()" onclick="triggerImageUpload()" class="btn-upload">📷 Image</button>
-        </div>
-
-        <div class="menu-row">
-            <button onmousedown="event.preventDefault()" onclick="downloadPDF()" class="btn-pdf">📄 Download PDF</button>
+        <div class="action-card">
+            <h3>⬇️ Receive from PC</h3>
+            <button class="btn btn-receive" id="recvBtn">Download File</button>
         </div>
     </div>
 
     <script>
-        const fabBtn = document.getElementById('fabBtn');
-        const optionsMenu = document.getElementById('optionsMenu');
-        const editor = document.getElementById('editor');
-        const imageInput = document.getElementById('imageInput');
+        let pcServerUrl = "";
+        let html5QrcodeScanner = null;
 
-        function toggleMenu(event) {
-            event.stopPropagation();
-            const isOpen = optionsMenu.classList.toggle('show');
-            fabBtn.classList.toggle('active', isOpen);
+        // 1. Initialize the QR Scanner
+        function startScanner() {
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
         }
 
-        function format(command, value = null) {
-            document.execCommand(command, false, value);
-            closeMenu();
+        // 2. When a QR code is successfully read
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`Scan result: ${decodedText}`);
+            
+            // Stop scanning to save battery and hide the camera view
+            html5QrcodeScanner.clear();
+            document.getElementById('reader').style.display = 'none';
+            
+            pcServerUrl = decodedText;
+            document.getElementById('statusText').innerText = "🟡 Connecting to PC...";
+
+            // 3. Perform Handshake
+            performHandshake();
         }
 
-        function closeMenu() {
-            optionsMenu.classList.remove('show');
-            fabBtn.classList.remove('active');
+        function onScanFailure(error) {
+            // Silently handle read failures (happens every frame until a code is found)
         }
 
-        document.addEventListener('click', () => {
-            closeMenu();
+        // 4. The Handshake Logic
+        function performHandshake() {
+            // We use an OPTIONS request to the /upload endpoint. 
+            // It's a lightweight way to check if the server is alive without sending data.
+            fetch(pcServerUrl + '/upload', {
+                method: 'OPTIONS'
+            })
+            .then(response => {
+                if (response.ok || response.status === 204) {
+                    // Handshake Success!
+                    document.getElementById('statusText').innerText = "🟢 Connected securely to PC!";
+                    document.getElementById('statusText').style.color = "green";
+                    
+                    // Reveal the UI actions
+                    document.getElementById('actions').style.display = 'block';
+                } else {
+                    throw new Error("Server responded, but not successfully.");
+                }
+            })
+            .catch(error => {
+                console.error("Handshake failed:", error);
+                document.getElementById('statusText').innerText = "🔴 Handshake Failed. Make sure PC and Phone are on the same Wi-Fi.";
+                document.getElementById('statusText').style.color = "red";
+            });
+        }
+
+        // 5. Enable Send Button only when a file is selected
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = !e.target.files.length;
         });
 
-        // --- IMAGE UPLOAD LOGIC ---
-        function triggerImageUpload() {
-            imageInput.click();
-            closeMenu();
-        }
-
-        imageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
+        // 6. Upload File Logic
+        document.getElementById('sendBtn').addEventListener('click', function() {
+            let fileInput = document.getElementById('fileInput');
+            let file = fileInput.files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            
-            reader.onload = function(event) {
-                const base64Url = event.target.result;
-                let alignInput = prompt("Where to position the image? Type 'left', 'center', or 'right'", "center");
-                let align = alignInput ? alignInput.toLowerCase().trim() : 'center';
+            let statusEl = document.getElementById('uploadStatus');
+            statusEl.innerText = "Uploading...";
+            this.disabled = true;
 
-                let imgStyle = "max-width: 100%; height: auto; border-radius: 8px; ";
-                
-                if (align === 'left') {
-                    imgStyle += "float: left; margin: 0 15px 15px 0;";
-                } else if (align === 'right') {
-                    imgStyle += "float: right; margin: 0 0 15px 15px;";
+            // Send raw file bytes to the Java API
+            fetch(pcServerUrl + '/upload?name=' + encodeURIComponent(file.name), {
+                method: 'POST',
+                body: file
+            })
+            .then(response => response.json()) // We expect the JSON {"status": "success"} from Java
+            .then(data => {
+                if(data.status === "success") {
+                    statusEl.innerText = "✅ File Sent Successfully!";
+                    statusEl.style.color = "green";
+                    fileInput.value = ""; // Clear input
                 } else {
-                    imgStyle += "display: block; margin: 15px auto;";
+                    throw new Error("Upload failed.");
                 }
-
-                const imgHtml = `<img src="${base64Url}" style="${imgStyle}">`;
-                
-                editor.focus();
-                document.execCommand('insertHTML', false, imgHtml);
-            };
-            
-            reader.readAsDataURL(file);
-            imageInput.value = '';
+            })
+            .catch(error => {
+                statusEl.innerText = "❌ Upload Failed.";
+                statusEl.style.color = "red";
+                this.disabled = false;
+            });
         });
 
-        // --- PDF DOWNLOAD LOGIC ---
-        function downloadPDF() {
-            closeMenu(); 
-            
-            const element = document.getElementById('editor');
-            
-            if (element.innerText.trim() === '' && element.innerHTML.indexOf('<img') === -1) {
-                alert("Please add some content before downloading.");
-                return;
-            }
+        // 7. Download File Logic
+        document.getElementById('recvBtn').addEventListener('click', function() {
+            // The simplest way to trigger a download is to redirect the browser to the file endpoint
+            window.location.href = pcServerUrl + '/download';
+        });
 
-            const opt = {
-                margin:       0.5,
-                filename:     'My_Document.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 }, 
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
-
-            html2pdf().set(opt).from(element).save();
-        }
+        // Start the scanner when the page loads
+        window.onload = startScanner;
     </script>
-
 </body>
 </html>
